@@ -1,5 +1,5 @@
-/Data/Classifing/
 /Data/Preprocessing/
 /pictures/
-/Data/temp/
-/Data/Training/
+__pycache__
+.idea/
+venv/
