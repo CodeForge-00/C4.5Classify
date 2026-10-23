@@ -1,14 +1,16 @@
+import os
 import pandas as pd
 import numpy as np
 from sklearn.preprocessing import StandardScaler
 
 data_file = './Data/winequality-red.xlsx'
 covariance_matrix_data_file = 'Data/Preprocessing/covarianceMatrix.xlsx'
+os.makedirs('Data/Preprocessing', exist_ok=True)
 reader = pd.read_excel(data_file, header=0)
 columns = reader.columns
 # print(reader.tail(8)) retorna las ultimas 8 filas
 #Aplicamos a los datos una transformación de normalización de forma que su media sea igual a 0, y su varianza=1
-data_csv=reader._get_values
+data_csv=reader.to_numpy()
 data=pd.DataFrame(data=data_csv,columns=columns)
 data=data.drop(['quality'],axis=1)
 data = StandardScaler().fit_transform(data)

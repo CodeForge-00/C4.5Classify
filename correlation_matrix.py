@@ -1,7 +1,9 @@
+import os
 import pandas as pd
 
 data_file = 'Data/winequality-red.xlsx'
 correlation_matrix_data_file = 'Data/Preprocessing/correlationMatrix.xlsx'
+os.makedirs('Data/Preprocessing', exist_ok=True)
 reader = pd.read_excel(data_file, header=0)
 """
 La idea es ir quitando los atributos que están altamente correlacionados, pues los mismos no aportan
@@ -15,7 +17,7 @@ individualmente información en el proceso de clasificación.
 *Si r = 0, no existe relación lineal.
 """
 print("Matriz de correlacion de Pearson")
-data_csv=reader._get_values
+data_csv=reader.to_numpy()
 columns = reader.columns
 data=pd.DataFrame(data=data_csv,columns=columns)
 data=data.drop(['quality'],axis=1)

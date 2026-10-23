@@ -7,7 +7,7 @@ from sklearn import preprocessing
 spec_power_data_file = 'Data/winequality-red.xlsx'
 reader = pd.read_excel(spec_power_data_file, header=0)
 columns = reader.columns
-data_csv=reader._get_values
+data_csv=reader.to_numpy()
 #Imprimimos la forma(dimensiones) de nuestra matriz
 print("Dimensiones de la matriz de datos original",data_csv.shape)
 index=['Sample '+str(ind) for ind in range(1,len(data_csv)+1)]

@@ -1,239 +1,65 @@
-import pandas as pd
-from util import util
+import math
 import numpy as np
-
-target = 'Data/Classifing/training_set_discretize.xlsx'
+from util import util
 
 
 class cutpoint:
-    def GainInfoCut(self, origin='Data/Training/training_set.xlsx'):
-        reader = pd.read_excel(origin, header=0)
-        columns = reader.columns
-        data_csv = reader._get_values
-        file = pd.DataFrame(data=data_csv, columns=columns)
-        file.to_excel(target, index=False)
-        reader = pd.read_excel(target, header=0)
-        attribute_summarize = []
-        for column in columns:
-            attribute_summarize.append(util.obtainMetrics(reader[column], column))
-        for i in range(len(columns) - 1):
-            self.makeCut(reader, data_csv, attribute_summarize, columns, i)
-        reader.to_excel(target, index=False)
+    """
+    Busca el mejor punto de corte binario (<= t / > t) de un atributo continuo, tal como hace C4.5
+    en cada nodo: se ordenan los valores, se prueban los umbrales entre valores distintos
+    consecutivos y se elige el de mayor ganancia de informacion.
 
-    def auxiliar(self, variablefield, posibles_puntos_corte):
-        aux = []
-        for j in range(len(variablefield)):
-            if variablefield[j] <= posibles_puntos_corte:
-                aux.append('<=' + str(posibles_puntos_corte))
-            else:
-                aux.append('>' + str(posibles_puntos_corte))
-        return aux
-
-    def makeCut(self, reader, data_csv, attribute_summarize, columns, column_index):
-        variablefield = []
-        data = []
-        classfield = []
-        posibles_puntos_corte = []
-        for i in range(len(data_csv)):
-            if i <len(data_csv)-1:
-                media=(data_csv[i][column_index]+data_csv[i+1][column_index])/2
-                if not media in posibles_puntos_corte:
-                    posibles_puntos_corte.append(data_csv[i][column_index])
-            variablefield.append(data_csv[i][column_index])
-            classfield.append(data_csv[i][-1])
-
-        max_value = float('-inf')
-        max_index = -1
-        for i in range(len(posibles_puntos_corte)):
-            aux = self.auxiliar(variablefield, posibles_puntos_corte[i])
-
-            union = np.array([
-                aux, classfield
-            ]).T
-            new_columns = ['field', 'class']
-            df = pd.DataFrame(data=union, columns=new_columns)
-            temp_summarize = []
-            for column in new_columns:
-                temp_summarize.append(util.obtainMetrics(df[column], column))
-
-            temp_summarize[-1]['entropy'] = util.fatherEntropy(temp_summarize[-1]['disctint_values_name'])
-            util.entropyPerValue(aux, classfield, 0, temp_summarize)
-            temp_summarize[0]['gain_split'] = util.gainSplit(-1, 0, temp_summarize)
-            if (temp_summarize[0]['gain_split'] > max_value):
-                max_value = temp_summarize[0]['gain_split']
-                max_index = i
-
-        for row in reader[columns[column_index]]:
-            if row <= posibles_puntos_corte[max_index]:
-                data.append('<=' + str(posibles_puntos_corte[max_index]))
-            else:
-                data.append('>' + str(posibles_puntos_corte[max_index]))
-        reader[columns[column_index]] = data
-
-        """
-         Variante ECONOMICA
-         variablefield = []
-        classfield = []
-        data=[]
-        for i in range(len(data_csv)):
-            variablefield.append(data_csv[i][column_index])
-            classfield.append(data_csv[i][-1])
-    
-        #Burblesort
-        for i in range(len(variablefield) - 1):
-            for j in range(i + 1, len(variablefield)):
-                if variablefield[i] > variablefield[j]:
-                    value1 = variablefield[i]
-                    class1 = classfield[i]
-                    variablefield[i] = variablefield[j]
-                    classfield[i] = classfield[j]
-                    variablefield[j] = value1
-                    classfield[j] = class1
-    
-        posibles_puntos_corte=[]
-        for i in range(len(variablefield) - 1):
-            if classfield[i]!=classfield[i+1]:
-                cut=(variablefield[i]+variablefield[i+1])/2
-                if not cut in posibles_puntos_corte:
-                    posibles_puntos_corte.append(cut)
-                    #print('Elemento1',variablefield[i],'Elemento2',variablefield[i+1],cut)
-    
-        max_value=float('-inf')
-        max_index=-1
-        for i in range(len(posibles_puntos_corte)):
-            aux=auxiliar(variablefield,posibles_puntos_corte[i])
-    
-            union=np.array([
-                aux, classfield
-            ]).T
-            new_columns=['field','class']
-            df=pd.DataFrame(data=union,columns=new_columns)
-            temp_summarize = []
-            for column in new_columns:
-                temp_summarize.append(util.obtainMetrics(df[column], column))
-    
-            temp_summarize[-1]['entropy'] = util.fatherEntropy(temp_summarize[-1]['disctint_values_name'])
-            util.entropyPerValue(aux,classfield, 0, temp_summarize)
-            temp_summarize[0]['gain_split']=util.gainSplit(-1, 0, temp_summarize)
-            temp_summarize[0]['split_info']=util.splitInfo(-1, 0, temp_summarize)
-            temp_summarize[0]['gain_ratio']=util.gainRatio(0, temp_summarize)
-            if(temp_summarize[0]['gain_ratio']>max_value):
-                max_value=temp_summarize[0]['gain_ratio']
-                max_index = i
-        #print('Campo',columns[column_index])
-        #for obj in posibles_puntos_corte:
-        #    print(obj)
-        #print('Resultado: indice',max_index,'punto',posibles_puntos_corte[max_index])
-    
-        for row in reader[columns[column_index]]:
-            if row <= posibles_puntos_corte[max_index]:
-                data.append('<=' + str(posibles_puntos_corte[max_index]))
-            else:
-                data.append('>' + str(posibles_puntos_corte[max_index]))
-        reader[columns[column_index]] = data
+    Variantes de discretizacion que se probaron antes (ya no se usan, la discretizacion ahora se
+    hace dentro de cada nodo):
+      1. Usar la media: sensible a valores atipicos.
+      2. Rangos con la misma cantidad de elementos (pd.qcut).
+      3. Rangos con la misma longitud (pd.cut).
+      4. Agrupar valores sucesivos de una misma clase: genera demasiadas etiquetas en datos continuos.
     """
 
-        """
-        METODO 1: utiliza para discretizar la media, lo cual no ser'ia un problema si no existiese
-        el riesgo de que dicha discretizaci'on se realice de forma incorrecta si existen en el
-        conjunto de datos valores atípicos(Un valor atípico es una observación extrañamente grande
-        o pequeña. Los valores atípicos pueden tener un efecto desproporcionado en los resultados
-        estadísticos, como la media, lo que puede conducir a interpretaciones engañosas.)
-        data = []
-        variablefield = reader[columns[column_index]]
-        media = sum(variablefield) / len(variablefield)
-        for row in reader[columns[column_index]]:
-                if row <= media:
-                    data.append('<=' + str(media))
-                else:
-                    data.append('>' + str(media))
-        reader[columns[column_index]] = data            
-        """
+    def __init__(self, min_objs=2):
+        self.min_objs = min_objs
 
+    def bestCut(self, values, classes, n_classes):
         """
-        Metodo 2 divide los rangos de forma tal que posean la misma cantidad de elementos
-        factors = reader[columns[column_index]]
-        rangos=pd.qcut(factors, 5)
-        valores=rangos.value_counts()
-        data=[]
-        for row in reader[columns[column_index]]:
-            for rango in rangos:
-                if row in rango:
-                    data.append(str(rango))
-                    break
-    
-        reader[columns[column_index]] = data
+        values: valores del atributo (1D). classes: indice de clase de cada instancia (enteros
+        0..n_classes-1). Devuelve None si no hay un corte valido con ganancia positiva, o un
+        diccionario con threshold, gain, split_info y gain_ratio.
         """
-        """
-        Metodo 3 divide los rangos de forma tal que posean la misma longitud
-        factors = reader[columns[column_index]]
-        rangos=pd.cut(factors, 5)
-        valores=rangos.value_counts()
-        data=[]
-        for row in reader[columns[column_index]]:
-            for rango in rangos:
-                if row in rango:
-                    data.append(str(rango))
-                    break
-    
-        reader[columns[column_index]] = data
-        """
+        n = len(values)
+        order = np.argsort(values, kind='mergesort')
+        v = values[order]
+        c = classes[order]
 
-        """
-        MÉTODO 4: agrupa los valores sucesivos que pertenecen a un misma clase en una sola etiqueta,
-        el unico inconveniente de esto es que al trabajar con datos continuos pueden surgir una 
-        considerable cantidad de etiquetas
-        
-        variablefield=[]
-        classfield=[]
-        for i in range(len(data_csv)):
-            variablefield.append(data_csv[i][column_index])
-            classfield.append(data_csv[i][-1])
-        for i in range(len(variablefield)-1):
-            for j in range(i+1,len(variablefield)):
-                if variablefield[i]>variablefield[j]:
-                    value1=variablefield[i]
-                    class1=classfield[i]
-                    variablefield[i]=variablefield[j]
-                    classfield[i]=classfield[j]
-                    variablefield[j]=value1
-                    classfield[j]=class1
-    
-       # for i in range(len(variablefield)):
-        #    print(variablefield[i], classfield[i])
-    
-        count=1
-        i=0
-        while i < len(variablefield)-1:
-            auxI=i
-            j=auxI+1
-            distint=False
-            while j<len(variablefield) and variablefield[auxI]==variablefield[j]:
-                if classfield[auxI]!=classfield[j]:
-                    distint=True
-                j+=1
-            i=j
-            if distint==True:
-                for k in range(auxI,j):
-                    classfield[k]='c'+str(count)
-                count+=1
-    
-        min=float('-inf')
-        class1=None
-        groups=[]
-        for i in range(len(classfield)):
-            if class1==None:
-                class1=classfield[i]
-            elif classfield[i]!=class1:
-                groups.append({'min':min,'max':variablefield[i-1]})
-                class1=classfield[i]
-                min=variablefield[i-1]
-        groups.append({'min': min, 'max': float('inf')})
-    
-        for row in reader[columns[column_index]]:
-            for group in groups:
-                if row> group['min'] and row <= group['max']:
-                    data.append('('+str(group['min'])+','+str(group['max'])+']')
-    
-        reader[columns[column_index]] = data
-            """
+        onehot = np.zeros((n, n_classes))
+        onehot[np.arange(n), c] = 1
+        cum = np.cumsum(onehot, axis=0)
+        total = cum[-1]
+
+        distinct = v[:-1] < v[1:]
+        left_n = np.arange(1, n)
+        valid = distinct & (left_n >= self.min_objs) & (n - left_n >= self.min_objs)
+        if not valid.any():
+            return None
+
+        idx = np.nonzero(valid)[0]
+        left = cum[idx]
+        right = total - left
+        ln = left_n[idx]
+        rn = n - ln
+
+        base = util.fatherEntropy(total)
+        gain = base - (ln * util.entropy(left) + rn * util.entropy(right)) / n
+        # Correccion de C4.5 release 8: penaliza atributos con muchos umbrales candidatos
+        gain = gain - math.log2(max(int(distinct.sum()), 1)) / n
+
+        best = int(np.argmax(gain))
+        if gain[best] <= 1e-12:
+            return None
+        split_info = util.splitInfo([ln[best], rn[best]])
+        return {
+            'threshold': float(v[idx[best]]),
+            'gain': float(gain[best]),
+            'split_info': split_info,
+            'gain_ratio': util.gainRatio(float(gain[best]), split_info),
+        }
